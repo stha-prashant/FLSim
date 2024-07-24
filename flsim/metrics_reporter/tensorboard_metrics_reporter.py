@@ -10,7 +10,8 @@
 import abc
 import copy
 from typing import Any, Dict, List, Optional, Tuple
-
+from omegaconf import DictConfig, OmegaConf
+import json
 from flsim.common.timeline import Timeline
 from flsim.interfaces.batch_metrics import IFLBatchMetrics
 from flsim.interfaces.metrics_reporter import (
@@ -19,17 +20,28 @@ from flsim.interfaces.metrics_reporter import (
     Metric,
     TrainingStage,
 )
+import neptune
 from torch.utils.tensorboard import SummaryWriter
 
 
 class FLMetricsReporter(IFLMetricsReporter, abc.ABC):
-    """MetricsReporter with Tensorboard support."""
+    """MetricsReporter with Tensorboard and Neptune support."""
 
-    def __init__(self, channels: List[Channel], log_dir: Optional[str] = None):
+    def __init__(self, channels: List[Channel], log_dir: Optional[str] = None, cfg=None):
         self.channels = channels
         self.log_dir = log_dir
+        self.neptune_run=None
         if Channel.TENSORBOARD in channels:
             self.set_summary_writer(log_dir)
+
+            self.neptune_run = neptune.init_run(
+                project="mtrip1056/flsim",
+                api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI1NDA5OTRhYi0zYjkzLTQ4NTEtOTAwYS1hNzZhYjQ2ZjBlN2UifQ==",
+            )  # your credentials
+            if cfg is not None:
+                cfg_neptune = OmegaConf.to_container(cfg, resolve=True)
+                self.neptune_run['parameters'] = cfg_neptune
+
         if Channel.STDOUT in channels:
             self.print = print
         self.losses = []
@@ -100,6 +112,8 @@ class FLMetricsReporter(IFLMetricsReporter, abc.ABC):
                     mean_loss,
                     timeline.global_round_num(),
                 )
+            if self.neptune_run:
+                self.neptune_run[f"Loss/{training_stage_in_str}"].log(mean_loss)
 
             # Score is usually a more interpretable metric than loss and higher is better
             # For classification tasks, accuracy is a typical score
@@ -117,6 +131,8 @@ class FLMetricsReporter(IFLMetricsReporter, abc.ABC):
                         score,
                         timeline.global_round_num(),
                     )
+                if self.neptune_run:
+                    self.neptune_run[f"{score_name}/{training_stage_in_str}"].log(score)
 
             # Construct evaluation metric object
             eval_metrics = self.create_eval_metrics(
@@ -145,6 +161,8 @@ class FLMetricsReporter(IFLMetricsReporter, abc.ABC):
                         timeline.global_round_num(),
                     )
                 )
+            if self.neptune_run:
+                self.neptune_run[f"{metric.name}/{training_stage_in_str}"].log(value)
 
         if reset:
             self.reset()

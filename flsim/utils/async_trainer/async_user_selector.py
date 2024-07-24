@@ -61,7 +61,6 @@ class CustomAsyncUserSelector(AsyncUserSelector):
         assert all_client_latest_deltas is not None
         assert len(all_client_latest_deltas) == self.data_provider.num_train_users()
         user_index = self.get_user_index_with_largest_updates(all_client_latest_deltas)
-        print(f'--------------Selected client {user_index}------------')
         # user_index = np.random.randint(0, self.data_provider.num_train_users())
         return AsyncUserSelectorInfo(
             user_data=self.data_provider.get_train_user(user_index),

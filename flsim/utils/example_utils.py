@@ -406,8 +406,9 @@ class MetricsReporter(FLMetricsReporter):
         window_size: int = 5,
         average_type: str = "sma",
         log_dir: Optional[str] = None,
+        cfg=None,
     ):
-        super().__init__(channels, log_dir)
+        super().__init__(channels, log_dir, cfg=cfg)
         self.set_summary_writer(log_dir=log_dir)
         self._round_to_target = float(1e10)
 

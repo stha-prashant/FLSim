@@ -67,6 +67,7 @@ def build_data_provider(local_batch_size, examples_per_user, drop_last: bool = F
 def main(
     trainer_config,
     data_config,
+    cfg,
     use_cuda_if_available: bool = True,
 ) -> None:
     cuda_enabled = torch.cuda.is_available() and use_cuda_if_available
@@ -84,7 +85,7 @@ def main(
         drop_last=False,
     )
 
-    metrics_reporter = MetricsReporter([Channel.TENSORBOARD, Channel.STDOUT])
+    metrics_reporter = MetricsReporter([Channel.TENSORBOARD, Channel.STDOUT], cfg=cfg)
 
     final_model, eval_score = trainer.train(
         data_provider=data_provider,
@@ -105,10 +106,10 @@ def run(cfg: DictConfig) -> None:
 
     trainer_config = cfg.trainer
     data_config = cfg.data
-
     main(
         trainer_config,
         data_config,
+        cfg=cfg
     )
 
 
