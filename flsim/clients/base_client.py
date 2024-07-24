@@ -113,6 +113,7 @@ class Client:
         return self.cfg.random_seed
 
     @property
+    #TODOP: realized late that there was this function as well, this may be cleaner to use to get history of updates
     def model_deltas(self) -> List[IFLModel]:
         """Return the stored deltas for all rounds that this user was selected."""
         return [self._tracked[s]["delta"] for s in range(self.times_selected)]

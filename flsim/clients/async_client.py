@@ -7,7 +7,7 @@
 
 # pyre-unsafe
 
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, List, Any
 
 from flsim.channels.base_channel import IdentityChannel
 from flsim.clients.base_client import Client, ClientConfig
@@ -27,6 +27,7 @@ from flsim.utils.async_trainer.training_event_generator import IEventGenerator
 from flsim.utils.cuda import DEFAULT_CUDA_MANAGER, ICudaStateManager
 from flsim.utils.fl.common import FLModelParamUtils
 from omegaconf import OmegaConf
+import torch.nn as nn
 
 
 class AsyncClientFactory:
@@ -40,8 +41,15 @@ class AsyncClientFactory:
         cuda_manager: ICudaStateManager = DEFAULT_CUDA_MANAGER,
         timeout_simulator: Optional[TimeOutSimulator] = None,
         channel: Optional[IdentityChannel] = None,
+        all_client_latest_deltas: Optional[List[Any]] = None,
     ):
-        user_info = user_selector.get_random_user()
+        #TODOP : see what information is available in this class and pass them to get_random_user
+        # if information (model updates are not available, save this in here
+        # or pass it from AsyncTrainingSimulator
+        if all_client_latest_deltas is not None:
+            user_info = user_selector.get_random_user(all_client_latest_deltas)
+        else:
+            user_info = user_selector.get_random_user()
         training_schedule = TrainingScheduleFactory.create(
             current_time, event_generator, user_info.user_data.num_train_examples()
         )

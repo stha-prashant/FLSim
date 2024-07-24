@@ -21,7 +21,7 @@ from flsim.utils.async_trainer.async_user_selector import AsyncUserSelector
 from flsim.utils.async_trainer.training_event_generator import IEventGenerator
 from flsim.utils.cuda import DEFAULT_CUDA_MANAGER, ICudaStateManager
 from tqdm import tqdm
-
+import copy
 
 class JobQueueStats:
     """Keeps track of #pending jobs in a job queue.
@@ -98,6 +98,10 @@ class AsyncTrainingSimulator:
         self.channel = channel
         self.cuda_manager = cuda_manager
         # init the first event
+
+        assert self.num_train_end_events_per_epoch == self.job_scheduler.num_total_users
+        self.all_clients_latest_deltas = [None]*self.num_train_end_events_per_epoch
+
         self.create_future_training_start_event()
 
     def create_future_training_start_event(self) -> None:
@@ -110,6 +114,8 @@ class AsyncTrainingSimulator:
             timeout_simulator=self.timeout_simulator,
             channel=self.channel,
             cuda_manager=self.cuda_manager,
+            all_client_latest_deltas=self.all_clients_latest_deltas
+            #TODOP: pass model updates/or anything else you need from here
         )
         # put will query __lt__ on top
         self.min_heap.put(new_client)
@@ -122,7 +128,8 @@ class AsyncTrainingSimulator:
 
     def end_training(self, top: AsyncClientDevice) -> None:
         self.queue_stats.on_job_end()
-        self.job_scheduler.on_training_end(top)
+        client_delta = self.job_scheduler.on_training_end(top)
+        self.all_clients_latest_deltas[top.user_info.user_index] = copy.deepcopy(client_delta.fl_get_module())
 
     def run_one_epoch(self) -> None:
         with tqdm(

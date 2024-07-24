@@ -131,7 +131,7 @@ class AsyncTrainer(FLTrainer, AsyncTrainingEventHandler):
             model_seqnum=self.aggregator.global_seqnum, init_model=self.global_model()
         )
 
-    def train_and_update_global_model(self, client: AsyncClientDevice) -> None:
+    def train_and_update_global_model(self, client: AsyncClientDevice) -> IFLModel:
         r"""
         Train a single client and aggregate update into the global model
         """
@@ -142,6 +142,8 @@ class AsyncTrainer(FLTrainer, AsyncTrainingEventHandler):
         client_delta, final_local_model, num_examples = client.train_local_model(
             self.metrics_reporter
         )
+
+        #TODOP: seems like we get delta here
         assert num_examples > 0, "Client must have more than one example"
         # 3. get client staleness
         client_staleness = self.aggregator.model_staleness(
@@ -160,6 +162,9 @@ class AsyncTrainer(FLTrainer, AsyncTrainingEventHandler):
             )
             if is_global_model_updated:
                 self._global_update_done()
+        
+        #TODOP: maybe only send updates that pass the statelness criteria back to client selector
+        return client_delta
 
     def _can_participate(self, staleness: float):
         return staleness <= self.cfg.max_staleness
@@ -284,7 +289,8 @@ class AsyncTrainerConfig(FLTrainerConfig):
     aggregator: AsyncAggregatorConfig = AsyncAggregatorConfig()
     training_event_generator: EventGeneratorConfig = EventGeneratorConfig()
     # TODO: async_user_selector_type should be directly instantiable from json_config
-    async_user_selector_type: AsyncUserSelectorType = AsyncUserSelectorType.RANDOM
+    # TODOP
+    async_user_selector_type: AsyncUserSelectorType = AsyncUserSelectorType.CUSTOM
     async_weight: AsyncWeightConfig = AsyncWeightConfig()
     # any client with staleness greater than this number will be rejected
     max_staleness: float = float("inf")

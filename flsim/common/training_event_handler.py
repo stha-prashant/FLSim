@@ -13,6 +13,7 @@ from typing import List, Tuple
 import numpy as np
 from flsim.clients.async_client import AsyncClientDevice
 from flsim.utils.async_trainer.device_state import DeviceState, TrainingState
+from flsim.interfaces.model import IFLModel
 
 
 class IAsyncTrainingEventHandler(abc.ABC):
@@ -60,7 +61,7 @@ class AsyncTrainingEventHandler(IAsyncTrainingEventHandler):
     def on_training_start(self, client: AsyncClientDevice) -> None:
         pass
 
-    def on_training_end(self, client: AsyncClientDevice) -> None:
+    def on_training_end(self, client: AsyncClientDevice) -> IFLModel:
         r"""
         Trains the client's local model and update seqnum
 
@@ -69,10 +70,10 @@ class AsyncTrainingEventHandler(IAsyncTrainingEventHandler):
             2. Trains client's local model by calling `train_and_update_global_model`
         """
         client.training_ended()
-        self.train_and_update_global_model(client=client)
+        return self.train_and_update_global_model(client=client)
 
-    def train_and_update_global_model(self, client: AsyncClientDevice) -> None:
-        pass
+    def train_and_update_global_model(self, client: AsyncClientDevice) -> IFLModel:
+        return IFLModel()
 
 
 class TestAsyncTrainingEventHandler(AsyncTrainingEventHandler):
@@ -96,7 +97,8 @@ class TestAsyncTrainingEventHandler(AsyncTrainingEventHandler):
         self.training_events.append((client, TrainingState.TRAINING_FINISHED))
         self.current_seqnum += 1
 
-    def train_and_update_global_model(self, client: AsyncClientDevice) -> None:
+    #TODOP: this will be broken, maybe fix
+    def train_and_update_global_model(self, client: AsyncClientDevice) -> IFLModel:
         self.num_unseen_global_model_updates.append(
             self.current_seqnum - client.model_seqnum
         )

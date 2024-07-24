@@ -13,7 +13,9 @@ from enum import auto, Enum
 
 import numpy as np
 from flsim.data.data_provider import IFLDataProvider, IFLUserData
-
+from flsim.interfaces.model import IFLModel
+from typing import Optional, List, Any
+import torch.nn as nn
 
 @dataclass
 class AsyncUserSelectorInfo:
@@ -51,6 +53,47 @@ class RandomAsyncUserSelector(AsyncUserSelector):
             user_index=user_index,
         )
 
+class CustomAsyncUserSelector(AsyncUserSelector):
+    def __init__(self, data_provider: IFLDataProvider):
+        super().__init__(data_provider)
+
+    def get_random_user(self, all_client_latest_deltas:Optional[List[Any]]=None) -> AsyncUserSelectorInfo:
+        assert all_client_latest_deltas is not None
+        assert len(all_client_latest_deltas) == self.data_provider.num_train_users()
+        user_index = self.get_user_index_with_largest_updates(all_client_latest_deltas)
+        print(f'--------------Selected client {user_index}------------')
+        # user_index = np.random.randint(0, self.data_provider.num_train_users())
+        return AsyncUserSelectorInfo(
+            user_data=self.data_provider.get_train_user(user_index),
+            user_index=user_index,
+        )
+
+    def get_user_index_with_largest_updates(self, all_client_latest_deltas:List[Any]):
+        r"""
+        all_client_latest_deltas will be a list
+        Elements will either be None (never trained before, so no update available)
+        or of type nn.Module()
+        """
+        # Check if we should return a random index (10% chance)
+        if np.random.random() < 0.1:
+            return np.random.randint(0, len(all_client_latest_deltas))
+        
+        return_index = -1
+        highest_magnitude = -2
+        
+        # Calculate magnitudes of nn.Module elements and track the one with highest magnitude
+        for index, delta in enumerate(all_client_latest_deltas):
+            if isinstance(delta, nn.Module):
+                magnitude = sum(param.norm().item() for param in delta.parameters())
+                if magnitude > highest_magnitude:
+                    highest_magnitude = magnitude
+                    return_index = index
+        
+        # If there are no nn.Module elements, return a random index
+        if return_index == -1:
+            return np.random.randint(0, len(all_client_latest_deltas))
+        return return_index
+
 
 class RoundRobinAsyncUserSelector(AsyncUserSelector):
     r"""
@@ -76,6 +119,7 @@ class RoundRobinAsyncUserSelector(AsyncUserSelector):
 class AsyncUserSelectorType(Enum):
     RANDOM = auto()
     ROUND_ROBIN = auto()
+    CUSTOM = auto()
 
 
 class AsyncUserSelectorFactory:
@@ -87,5 +131,7 @@ class AsyncUserSelectorFactory:
             return RandomAsyncUserSelector(data_provider)
         elif type == AsyncUserSelectorType.ROUND_ROBIN:
             return RoundRobinAsyncUserSelector(data_provider)
+        elif type == AsyncUserSelectorType.CUSTOM:
+            return CustomAsyncUserSelector(data_provider)
         else:
             raise AssertionError(f"Unknown user selector type: {type}")
